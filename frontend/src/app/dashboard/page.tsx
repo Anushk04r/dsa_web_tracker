@@ -515,7 +515,7 @@ export default function DashboardPage() {
                   >
                     <p className="font-medium text-gray-900 dark:text-zinc-100">{p.title}</p>
                     <p className="text-xs text-gray-500 dark:text-zinc-400 capitalize">
-                      {p.difficulty} • {p.status}
+                      {p.difficulty}
                     </p>
                   </div>
                   <button
