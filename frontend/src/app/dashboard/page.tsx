@@ -239,14 +239,14 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === "authenticated" && session?.user) {
       loadProblems();
-      const lcUsername = (session?.user as any)?.leetcodeUsername;
+      const lcUsername = (session.user as any)?.leetcodeUsername;
       if (lcUsername) {
         fetchLeetCodeData(lcUsername);
       }
     }
-  }, [session, status]);
+  }, [status, (session?.user as any)?.id, (session?.user as any)?.leetcodeUsername]);
 
   const fetchLeetCodeData = async (username: string) => {
     setLoadingLc(true);
