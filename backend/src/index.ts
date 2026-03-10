@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import authRoutes from "./routes/auth";
 import chatbotRoutes from "./routes/chatbot";
 import problemsRoutes from "./routes/problems";
+import leetcodeRoutes from "./routes/leetcode";
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.use(express.json());
 app.use("/auth", authRoutes);
 app.use("/chatbot", chatbotRoutes);
 app.use("/problems", problemsRoutes);
+app.use("/leetcode", leetcodeRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "backend-api" });

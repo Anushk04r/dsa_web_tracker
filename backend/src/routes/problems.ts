@@ -97,7 +97,7 @@ router.post("/fetch-metadata", requireAuth, async (req: AuthRequest, res) => {
     const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
     if (titleMatch && titleMatch[1]) {
       title = titleMatch[1].trim();
-      
+
       // Clean title based on source
       if (source === "leetcode") {
         // "Two Sum - LeetCode" -> "Two Sum"
@@ -166,7 +166,7 @@ router.post("/fetch-metadata", requireAuth, async (req: AuthRequest, res) => {
     });
   } catch (err: any) {
     console.error("Fetch metadata error", err.message);
-    
+
     // Handle 403/429 errors (LeetCode blocking)
     if (err.response?.status === 403 || err.response?.status === 429) {
       // Even if blocked, try to extract from URL as fallback
@@ -177,7 +177,7 @@ router.post("/fetch-metadata", requireAuth, async (req: AuthRequest, res) => {
             .split("-")
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
-          
+
           return res.json({
             title: extractedTitle,
             difficulty: "unknown",
@@ -186,12 +186,12 @@ router.post("/fetch-metadata", requireAuth, async (req: AuthRequest, res) => {
           });
         }
       }
-      
+
       return res.status(400).json({
         message: "LeetCode is blocking automated requests. Title extracted from URL - please fill difficulty manually.",
       });
     }
-    
+
     if (err.code === "ECONNREFUSED" || err.code === "ETIMEDOUT") {
       return res.status(400).json({
         message: "Could not connect to the website. Please check the URL and try again.",
@@ -206,7 +206,7 @@ router.post("/fetch-metadata", requireAuth, async (req: AuthRequest, res) => {
           .split("-")
           .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
           .join(" ");
-        
+
         return res.json({
           title: extractedTitle,
           difficulty: "unknown",
@@ -229,7 +229,7 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
   }
 
   const { id } = req.params;
-  const { notes } = req.body;
+  const { notes, codeSolution } = req.body;
 
   try {
     const problem = await Problem.findOne({ _id: id, user: req.userId });
@@ -237,7 +237,8 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
       return res.status(404).json({ message: "Problem not found" });
     }
 
-    problem.notes = notes || "";
+    if (notes !== undefined) problem.notes = notes;
+    if (codeSolution !== undefined) problem.codeSolution = codeSolution;
     await problem.save();
 
     return res.json(problem);

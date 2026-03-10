@@ -721,32 +721,27 @@ This repository is intentionally structured to look like a production‑grade, *
 
 ---
 
-## 12. Recent Updates & Changes
+## 12. Recent Updates & Changes (v2.0)
 
-### UI/UX Improvements (Latest)
-- **Color Scheme**: Changed to clean **white and green** color combination throughout the entire website
-  - White backgrounds with green accents (`#10b981` / `green-500`)
-  - Improved readability and modern aesthetic
-- **Simplified Problem Addition**: 
-  - Removed `status`, `source`, and `notes` fields from add problem form
-  - Streamlined form focuses on essential fields: URL, Title, and Difficulty
-  - Problems default to "unsolved" status and source is auto-detected from URL
-- **Notes Feature**: 
-  - Added "Notes" button for each problem in the dashboard list
-  - Clicking opens a modal to add/edit notes for that specific problem
-  - Notes are saved via `PATCH /problems/:id` endpoint
-- **Clickable Problems**: 
-  - Problems in the dashboard list are now clickable
-  - Clicking a problem opens the actual problem URL in a new tab
-  - Hover effects indicate interactivity
+### 🌙 Premium Dark Theme
+- **Always Dark**: The platform is now locked to a high-contrast dark theme (`zinc-950`) for a professional developer experience.
+- **Clean UI**: Removed theme toggles to ensure a consistent, zero-flicker aesthetic across all pages.
 
-### Backend Enhancements
-- **Problem Notes Update**: Added `PATCH /problems/:id` endpoint to update problem notes
-- **Improved Scraping**: Enhanced metadata extraction with regex-based title extraction and better error handling
+### 📊 LeetCode Live Integration
+- **Solved Ring**: Visualizes solved problems by difficulty (Easy, Medium, Hard) using dynamic SVG gradients.
+- **Submission Heatmap**: A built-in year-long activity tracker modeled after high-end developer profiles.
+- **Synchronized Stats**: Real-time streak and active day tracking fetched directly through the backend proxy.
 
-### Frontend Components
-- **Updated Theme**: All pages (landing, auth, dashboard, chat) now use consistent white/green theme
-- **Better UX**: Improved modals, buttons, and form styling with green accents
-- **Responsive Design**: Maintained responsive layout across all screen sizes
+### 📝 Problem Workspace (Split-Screen)
+- **Side-by-Side Editor**: A massive 7xl-width workspace with a dual-pane layout:
+  - **Left**: Analysis area for time complexity, edge cases, and personal notes.
+  - **Right**: High-contrast black code editor for final implementations and solution snippets.
+- **Backend Schema v2**: Problems now store `notes` and `codeSolution` separately in MongoDB.
+- **Logic Sync**: Save button handles bulk updates of both notes and code to minimize API overhead.
+
+### 🚀 Technical Logic
+- **Forced Theme**: Implemented via `forcedTheme="dark"` in the `ThemeProvider` to prevent layout shift.
+- **Layout Architecture**: Uses Tailwind's `flex-col lg:flex-row` with `h-[85vh]` and `overflow-hidden` to create a viewport-locked professional IDE feel.
+- **CRUD Operations**: Updated `PATCH /problems/:id` on the backend to accept multiple fields, supporting the independent editing of notes and logic.
 
 

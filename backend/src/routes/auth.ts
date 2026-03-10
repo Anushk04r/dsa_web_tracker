@@ -101,9 +101,48 @@ router.get("/me", requireAuth, async (req: AuthRequest, res) => {
       id: user._id,
       email: user.email,
       name: user.name,
+      leetcodeUsername: user.leetcodeUsername,
     });
   } catch (err) {
     console.error("Me error", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+const updateProfileSchema = z.object({
+  name: z.string().min(1).optional(),
+  leetcodeUsername: z.string().optional(),
+});
+
+router.patch("/profile", requireAuth, async (req: AuthRequest, res) => {
+  const parseResult = updateProfileSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ message: "Invalid data", errors: parseResult.error.flatten() });
+  }
+
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (parseResult.data.name !== undefined) {
+      user.name = parseResult.data.name;
+    }
+    if (parseResult.data.leetcodeUsername !== undefined) {
+      user.leetcodeUsername = parseResult.data.leetcodeUsername;
+    }
+
+    await user.save();
+
+    return res.json({
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      leetcodeUsername: user.leetcodeUsername,
+    });
+  } catch (err: any) {
+    console.error("Update profile error", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 });

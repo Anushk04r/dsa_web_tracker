@@ -41,14 +41,21 @@ const handler = NextAuth({
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.backendToken = (user as any).backendToken;
+        token.leetcodeUsername = (user as any).leetcodeUsername;
+      }
+      if (trigger === "update" && session?.user) {
+        token.leetcodeUsername = session.user.leetcodeUsername;
       }
       return token;
     },
     async session({ session, token }) {
       (session as any).backendToken = token.backendToken;
+      if (session.user) {
+        (session.user as any).leetcodeUsername = token.leetcodeUsername;
+      }
       return session;
     },
   },

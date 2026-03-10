@@ -14,6 +14,7 @@ export interface IProblem extends Document {
   tags: string[];
   status: ProblemStatus;
   notes?: string;
+  codeSolution?: string;
   solvedAt?: Date;
 }
 
@@ -40,6 +41,7 @@ const ProblemSchema = new Schema<IProblem>(
       default: "unsolved",
     },
     notes: { type: String },
+    codeSolution: { type: String },
     solvedAt: { type: Date },
   },
   { timestamps: true }

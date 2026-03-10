@@ -18,8 +18,7 @@ export default function RootLayout({
       <body className="min-h-screen text-gray-900 dark:text-zinc-50 transition-colors duration-300">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          forcedTheme="dark"
           disableTransitionOnChange
         >
           <Providers>{children}</Providers>

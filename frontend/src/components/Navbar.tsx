@@ -83,9 +83,9 @@ export function Navbar() {
         <nav className="flex items-center gap-2">
           <NavLink href="/dashboard" label="Dashboard" />
           <NavLink href="/chat" label="AI Mentor" />
+          <NavLink href="/profile" label="Profile" />
         </nav>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/" })}

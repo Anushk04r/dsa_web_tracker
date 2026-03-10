@@ -14,6 +14,7 @@ interface ProblemSummary {
   source?: string;
   link?: string;
   notes?: string;
+  codeSolution?: string;
 }
 
 interface ProblemMetadata {
@@ -23,6 +24,177 @@ interface ProblemMetadata {
   source: string;
 }
 
+function LeetCodeHeatmap({ calendarData }: { calendarData: Record<string, number> }) {
+  const weeks = 54; // Increased to 54 to ensure today is always fully visible
+  const daysInWeek = 7;
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - ((weeks - 1) * 7));
+  startDate.setDate(startDate.getDate() - startDate.getDay());
+
+  const getColor = (count: number) => {
+    if (!count) return "fill-gray-100 dark:fill-zinc-800";
+    if (count < 2) return "fill-green-200 dark:fill-green-900";
+    if (count < 4) return "fill-green-400 dark:fill-green-700";
+    if (count < 6) return "fill-green-600 dark:fill-green-500";
+    return "fill-green-800 dark:fill-green-300";
+  };
+
+  const monthLabels = [];
+  let prevMonth = -1;
+
+  const rects = [];
+  for (let w = 0; w < weeks; w++) {
+    const weekRects = [];
+    const weekStartDate = new Date(startDate);
+    weekStartDate.setDate(startDate.getDate() + (w * 7));
+
+    if (weekStartDate.getMonth() !== prevMonth) {
+      monthLabels.push(
+        <text
+          key={`month-${w}`}
+          x={w * 12 + 30}
+          y={10}
+          className="text-[9px] fill-gray-400 dark:fill-zinc-500 font-normal"
+        >
+          {weekStartDate.toLocaleString('default', { month: 'short' })}
+        </text>
+      );
+      prevMonth = weekStartDate.getMonth();
+    }
+
+    for (let d = 0; d < daysInWeek; d++) {
+      const currentDate = new Date(weekStartDate);
+      currentDate.setDate(weekStartDate.getDate() + d);
+
+      // Only show up to today
+      if (currentDate > today) continue;
+
+      const utcTimestamp = Math.floor(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()) / 1000);
+      const count = calendarData[String(utcTimestamp)] || calendarData[utcTimestamp] || 0;
+
+      weekRects.push(
+        <rect
+          key={`${w}-${d}`}
+          x={w * 12 + 30}
+          y={d * 12 + 20}
+          width={10}
+          height={10}
+          rx={2}
+          className={`${getColor(count)} transition-all hover:stroke-gray-400 dark:hover:stroke-gray-600`}
+        >
+          <title>{currentDate.toDateString()}: {count} submissions</title>
+        </rect>
+      );
+    }
+    rects.push(<g key={w}>{weekRects}</g>);
+  }
+
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, i) => (
+    (i === 1 || i === 3 || i === 5) && (
+      <text
+        key={`day-${i}`}
+        x={0}
+        y={i * 12 + 28}
+        className="text-[9px] fill-gray-400 dark:fill-zinc-500 font-normal"
+      >
+        {day}
+      </text>
+    )
+  ));
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full h-full">
+      <div className="overflow-x-auto custom-scrollbar w-full flex justify-center">
+        <svg width={weeks * 12 + 50} height={daysInWeek * 12 + 30} className="overflow-visible">
+          {monthLabels}
+          {dayLabels}
+          {rects}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function LeetCodeSolvedRing({ lcStats }: { lcStats: any }) {
+  const stats = lcStats.matchedUser.submitStatsGlobal.acSubmissionNum;
+  const allCounts = lcStats.allQuestionsCount;
+
+  const getStat = (diff: string) => stats.find((s: any) => s.difficulty === diff)?.count || 0;
+  const getAll = (diff: string) => allCounts.find((q: any) => q.difficulty === diff)?.count || 0;
+
+  const easySolved = getStat("Easy");
+  const mediumSolved = getStat("Medium");
+  const hardSolved = getStat("Hard");
+  const totalSolved = easySolved + mediumSolved + hardSolved;
+
+  const easyTotal = getAll("Easy");
+  const mediumTotal = getAll("Medium");
+  const hardTotal = getAll("Hard");
+
+  const radius = 60;
+  const stroke = 8;
+  const normalizedRadius = radius - stroke;
+  const circumference = normalizedRadius * 2 * Math.PI;
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center gap-4 py-3 px-6 w-full h-full">
+      <div className="relative flex items-center justify-center shrink-0">
+        <svg height={radius * 2} width={radius * 2} className="transform -rotate-90">
+          <circle
+            stroke="currentColor"
+            fill="transparent"
+            strokeWidth={stroke}
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+            className="text-gray-100 dark:text-zinc-800"
+          />
+          <circle
+            stroke="#ffa116"
+            fill="transparent"
+            strokeWidth={stroke + 1}
+            strokeDasharray={circumference + ' ' + circumference}
+            style={{ strokeDashoffset: circumference - (totalSolved / (easyTotal + mediumTotal + hardTotal || 1)) * circumference }}
+            strokeLinecap="round"
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+            className="transition-all duration-1000 ease-out"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-3xl font-bold text-gray-900 dark:text-zinc-50 leading-tight">{totalSolved}</span>
+          <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Solved</span>
+        </div>
+      </div>
+
+      <div className="flex-1 w-full space-y-1">
+        {[
+          { label: "Easy", solved: easySolved, total: easyTotal, color: "text-[#00b8a3]", bg: "bg-[#00b8a3]" },
+          { label: "Medium", solved: mediumSolved, total: mediumTotal, color: "text-[#ffc01e]", bg: "bg-[#ffc01e]" },
+          { label: "Hard", solved: hardSolved, total: hardTotal, color: "text-[#ef4743]", bg: "bg-[#ef4743]" },
+        ].map((item) => (
+          <div key={item.label} className="space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400 font-medium">{item.label}</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-gray-900 dark:text-zinc-50 sm:text-sm">{item.solved}</span>
+                <span className="text-gray-500 font-normal text-[10px]">/{item.total}</span>
+              </div>
+            </div>
+            <div className="h-1.5 w-full bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className={`h-full ${item.bg} rounded-full transition-all duration-1000`}
+                style={{ width: `${(item.solved / (item.total || 1)) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
@@ -41,7 +213,11 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [notesModal, setNotesModal] = useState<{ problemId: string; notes: string } | null>(null);
   const [notesText, setNotesText] = useState("");
+  const [codeText, setCodeText] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [lcStats, setLcStats] = useState<any>(null);
+  const [lcCalendar, setLcCalendar] = useState<any>(null);
+  const [loadingLc, setLoadingLc] = useState(false);
 
   const loadProblems = async () => {
     if (!session) return;
@@ -65,8 +241,37 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === "authenticated") {
       loadProblems();
+      const lcUsername = (session?.user as any)?.leetcodeUsername;
+      if (lcUsername) {
+        fetchLeetCodeData(lcUsername);
+      }
     }
   }, [session, status]);
+
+  const fetchLeetCodeData = async (username: string) => {
+    setLoadingLc(true);
+    try {
+      const statsRes = await fetch(`${backendUrl}/leetcode/stats/${username}`, {
+        headers: { Authorization: `Bearer ${(session as any).backendToken}` },
+      });
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setLcStats(statsData);
+      }
+
+      const calRes = await fetch(`${backendUrl}/leetcode/calendar/${username}`, {
+        headers: { Authorization: `Bearer ${(session as any).backendToken}` },
+      });
+      if (calRes.ok) {
+        const calData = await calRes.json();
+        setLcCalendar(calData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch LeetCode data", err);
+    } finally {
+      setLoadingLc(false);
+    }
+  };
 
   const handleFetchMetadata = async () => {
     if (!problemUrl.trim()) {
@@ -154,6 +359,7 @@ export default function DashboardPage() {
   const handleOpenNotes = (problem: ProblemSummary) => {
     setNotesModal({ problemId: problem._id, notes: problem.notes || "" });
     setNotesText(problem.notes || "");
+    setCodeText(problem.codeSolution || "");
   };
 
   const handleSaveNotes = async () => {
@@ -166,7 +372,7 @@ export default function DashboardPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${(session as any).backendToken}`,
         },
-        body: JSON.stringify({ notes: notesText }),
+        body: JSON.stringify({ notes: notesText, codeSolution: codeText }),
       });
       if (res.ok) {
         setNotesModal(null);
@@ -217,32 +423,77 @@ export default function DashboardPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-[calc(100vh-3rem)] px-4 py-6 max-w-5xl mx-auto space-y-6 transition-colors">
+      <main className="min-h-[calc(100vh-3rem)] px-4 py-6 max-w-6xl mx-auto space-y-0.5 transition-colors">
         <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold text-gray-900 dark:text-zinc-50">Dashboard</h1>
-            <p className="text-gray-600 dark:text-zinc-400 text-sm">
-              Welcome back, {session.user?.name || session.user?.email}
-            </p>
+          <div className="flex items-center gap-6">
+            <div>
+              <h1 className="text-3xl font-semibold text-gray-900 dark:text-zinc-50 leading-tight">Dashboard</h1>
+              <p className="text-gray-500 dark:text-zinc-400 text-sm">
+                Welcome back, {session.user?.name || (session.user as any)?.email?.split('@')[0]}
+              </p>
+            </div>
+            <div className="h-10 w-[1px] bg-gray-200 dark:bg-zinc-800 hidden sm:block" />
+            <div className="hidden sm:flex flex-col">
+              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Local Problems</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-zinc-50">{problems.length}</span>
+            </div>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 transition-all shadow-sm hover:shadow-md active:scale-95"
           >
             <span className="text-lg">+</span>
             Add Problem
           </button>
         </header>
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-xl border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 p-4">
-            <p className="text-xs text-gray-600 dark:text-zinc-400">Total problems</p>
-            <p className="text-2xl font-semibold mt-1 text-gray-900 dark:text-zinc-50">{problems.length}</p>
+        {/* Unified LeetCode Section */}
+        <div className="animate-fade-in group">
+          <div className="flex items-center justify-between mb-1 py-4">
+            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <img src="https://leetcode.com/static/images/LeetCode_logo_rvs.png" alt="LeetCode" className="h-4 w-4 grayscale dark:invert opacity-70" />
+              LeetCode Live
+            </h2>
+            {lcCalendar && (
+              <div className="flex gap-4 text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+                <span>Streak <span className="text-green-500">{lcCalendar.streak}</span></span>
+                <span>Active <span className="text-green-500">{lcCalendar.totalActiveDays}</span></span>
+              </div>
+            )}
           </div>
-          <div className="rounded-xl border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 p-4">
-            <p className="text-xs text-gray-600 dark:text-zinc-400">Solved</p>
-            <p className="text-2xl font-semibold mt-1 text-green-600 dark:text-green-500">{solvedCount}</p>
+
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 shadow-sm overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-zinc-800 flex flex-col lg:flex-row">
+            {/* Left: Stats Ring */}
+            <div className="w-full lg:w-[340px] shrink-0 flex items-center bg-gray-50/30 dark:bg-zinc-900/10">
+              {loadingLc ? (
+                <div className="w-full h-[220px] animate-pulse flex flex-col items-center justify-center p-6 gap-4">
+                  <div className="w-24 h-24 rounded-full border-4 border-gray-100 dark:border-zinc-800" />
+                  <div className="w-20 h-4 bg-gray-100 dark:border-zinc-800 rounded" />
+                </div>
+              ) : lcStats ? (
+                <LeetCodeSolvedRing lcStats={lcStats} />
+              ) : (
+                <div className="p-6 text-center w-full">
+                  <p className="text-xs text-gray-400 italic">No LeetCode linked</p>
+                </div>
+              )}
+            </div>
+
+            {/* Right: Heatmap */}
+            <div className="flex-1 py-3 px-6 flex flex-col justify-center min-h-[120px]">
+              {loadingLc ? (
+                <div className="w-full h-32 bg-gray-50/50 dark:bg-zinc-800/30 rounded-lg animate-pulse" />
+              ) : lcCalendar ? (
+                <div className="overflow-x-auto pb-2 custom-scrollbar">
+                  <LeetCodeHeatmap calendarData={lcCalendar.submissionCalendar} />
+                </div>
+              ) : (
+                <div className="text-center p-6">
+                  <p className="text-xs text-gray-500">Enable LeetCode in profile to see activity</p>
+                </div>
+              )}
+            </div>
           </div>
-        </section>
+        </div>
         <section className="space-y-2">
           <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-50">Recent problems</h2>
           <div className="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
@@ -275,7 +526,7 @@ export default function DashboardPage() {
                     className="relative ml-4 px-3 py-1.5 rounded-md text-xs font-medium bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors"
                   >
                     Notes
-                    {p.notes && p.notes.trim().length > 0 && (
+                    {((p.notes && p.notes.trim().length > 0) || (p.codeSolution && p.codeSolution.trim().length > 0)) && (
                       <span className="absolute -top-1 -right-1 flex h-2 w-2">
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-sm border border-white dark:border-zinc-900"></span>
                       </span>
@@ -382,38 +633,70 @@ export default function DashboardPage() {
         )}
 
         {notesModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-6 w-full max-w-2xl shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-zinc-50">Problem Notes</h2>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 sm:p-6">
+            <div className="bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-7xl h-[85vh] flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in overflow-hidden">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-3 border-b-2 border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-base font-black uppercase tracking-tighter text-gray-900 dark:text-zinc-50">Problem Workspace</h2>
+                </div>
                 <button
                   onClick={() => setNotesModal(null)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl"
+                  className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-all"
                 >
-                  ×
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
-              <textarea
-                value={notesText}
-                onChange={(e) => setNotesText(e.target.value)}
-                rows={8}
-                placeholder="Add your notes about this problem..."
-                className="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-zinc-50"
-              />
-              <div className="flex gap-3 justify-end mt-4">
-                <button
-                  onClick={() => setNotesModal(null)}
-                  className="rounded-lg border border-gray-300 dark:border-zinc-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveNotes}
-                  disabled={savingNotes}
-                  className="rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {savingNotes ? "Saving..." : "Save Notes"}
-                </button>
+
+              {/* Modal Content - Split View */}
+              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden divide-y-2 lg:divide-y-0 lg:divide-x-2 divide-zinc-200 dark:divide-zinc-800">
+                {/* Left: Notes Section */}
+                <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-zinc-900">
+                  <div className="px-4 py-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-zinc-500 tracking-wider">Analysis & Notes</span>
+                  </div>
+                  <textarea
+                    value={notesText}
+                    onChange={(e) => setNotesText(e.target.value)}
+                    placeholder="Enter your analysis here..."
+                    className="flex-1 w-full border-none bg-transparent p-4 text-sm focus:ring-0 text-gray-900 dark:text-zinc-200 resize-none placeholder-zinc-400 dark:placeholder-zinc-600 leading-relaxed overflow-y-auto custom-scrollbar"
+                  />
+                </div>
+
+                {/* Right: Code Section */}
+                <div className="flex-[2.2] flex flex-col min-h-0 bg-black">
+                  <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase text-zinc-500 tracking-wider">Solution Link / Code</span>
+                  </div>
+                  <textarea
+                    value={codeText}
+                    onChange={(e) => setCodeText(e.target.value)}
+                    placeholder="// Implementation details..."
+                    className="flex-1 w-full bg-transparent p-6 text-xs sm:text-sm font-mono focus:ring-0 border-none text-emerald-500 dark:text-emerald-400 resize-none placeholder-zinc-700 overflow-y-auto custom-scrollbar leading-relaxed"
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-3 border-t-2 border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-end gap-4">
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setNotesModal(null)}
+                    className="px-6 py-2 text-xs font-bold uppercase tracking-widest hover:text-red-500 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveNotes}
+                    disabled={savingNotes}
+                    className="bg-green-600 px-10 py-2.5 rounded-lg text-xs font-black uppercase tracking-[0.2em] text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed active:bg-green-700 transition-all shadow-lg shadow-green-900/20"
+                  >
+                    {savingNotes ? "Saving..." : "Save"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
