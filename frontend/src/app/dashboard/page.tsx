@@ -218,6 +218,7 @@ export default function DashboardPage() {
   const [lcStats, setLcStats] = useState<any>(null);
   const [lcCalendar, setLcCalendar] = useState<any>(null);
   const [loadingLc, setLoadingLc] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const loadProblems = async () => {
     if (!session) return;
@@ -494,46 +495,65 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-        <section className="space-y-2">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-50">Recent problems</h2>
-          <div className="rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
+        <section className="space-y-4 mt-4 mb-1">
+          <div className="flex flex-col mt-1 mb-2 sm:flex-row sm:items-center justify-between gap-2">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-zinc-50">Recent problems</h2>
+            <div className="relative w-full sm:w-58">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search problems..."
+                className="block w-full pl-10 pr-3 py-1 border border-gray-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-900 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 dark:text-zinc-50 transition-all"
+              />
+            </div>
+          </div>
+          <div className="rounded-xl mt-1 border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
             {loading ? (
               <p className="p-4 text-sm text-gray-600">Loading problems...</p>
-            ) : problems.length === 0 ? (
+            ) : problems.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
               <p className="p-4 text-sm text-gray-600">
-                No problems yet. Click the "+ Add Problem" button to get started.
+                {searchTerm ? `No problems found matching "${searchTerm}"` : "No problems yet. Click the \"+ Add Problem\" button to get started."}
               </p>
             ) : (
-              problems.slice(0, 10).map((p) => (
-                <div
-                  key={p._id}
-                  className="flex items-center justify-between px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
-                >
+              problems
+                .filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()))
+                .slice(0, searchTerm ? undefined : 10)
+                .map((p) => (
                   <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => handleProblemClick(p)}
+                    key={p._id}
+                    className="flex items-center justify-between px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
                   >
-                    <p className="font-medium text-gray-900 dark:text-zinc-100">{p.title}</p>
-                    <p className="text-xs text-gray-500 dark:text-zinc-400 capitalize">
-                      {p.difficulty}
-                    </p>
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => handleProblemClick(p)}
+                    >
+                      <p className="font-medium text-gray-900 dark:text-zinc-100">{p.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 capitalize">
+                        {p.difficulty}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenNotes(p);
+                      }}
+                      className="relative ml-4 px-3 py-1.5 rounded-md text-xs font-medium bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors"
+                    >
+                      Notes
+                      {((p.notes && p.notes.trim().length > 0) || (p.codeSolution && p.codeSolution.trim().length > 0)) && (
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-sm border border-white dark:border-zinc-900"></span>
+                        </span>
+                      )}
+                    </button>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenNotes(p);
-                    }}
-                    className="relative ml-4 px-3 py-1.5 rounded-md text-xs font-medium bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors"
-                  >
-                    Notes
-                    {((p.notes && p.notes.trim().length > 0) || (p.codeSolution && p.codeSolution.trim().length > 0)) && (
-                      <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-sm border border-white dark:border-zinc-900"></span>
-                      </span>
-                    )}
-                  </button>
-                </div>
-              ))
+                ))
             )}
           </div>
         </section>
