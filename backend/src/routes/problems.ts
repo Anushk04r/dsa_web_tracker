@@ -229,7 +229,7 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
   }
 
   const { id } = req.params;
-  const { notes, codeSolution } = req.body;
+  const { notes, codeSolution, title, link, difficulty, source, status } = req.body;
 
   try {
     const problem = await Problem.findOne({ _id: id, user: req.userId });
@@ -239,11 +239,35 @@ router.patch("/:id", requireAuth, async (req: AuthRequest, res) => {
 
     if (notes !== undefined) problem.notes = notes;
     if (codeSolution !== undefined) problem.codeSolution = codeSolution;
+    if (title !== undefined) problem.title = title;
+    if (link !== undefined) problem.link = link;
+    if (difficulty !== undefined) problem.difficulty = difficulty;
+    if (source !== undefined) problem.source = source;
+    if (status !== undefined) problem.status = status;
     await problem.save();
 
     return res.json(problem);
   } catch (err) {
     console.error("Update problem error", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
+  if (!req.userId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const problem = await Problem.findOneAndDelete({ _id: id, user: req.userId });
+    if (!problem) {
+      return res.status(404).json({ message: "Problem not found" });
+    }
+    return res.status(204).send();
+  } catch (err) {
+    console.error("Delete problem error", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 });

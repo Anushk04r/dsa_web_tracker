@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
@@ -219,6 +219,18 @@ export default function DashboardPage() {
   const [lcCalendar, setLcCalendar] = useState<any>(null);
   const [loadingLc, setLoadingLc] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [visibleCount, setVisibleCount] = useState(10);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [editModal, setEditModal] = useState<{
+    problemId: string;
+    title: string;
+    link: string;
+    difficulty: string;
+    source: string;
+    status: string;
+  } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadProblems = async () => {
     if (!session) return;
@@ -248,6 +260,27 @@ export default function DashboardPage() {
       }
     }
   }, [status, (session?.user as any)?.id, (session?.user as any)?.leetcodeUsername]);
+
+  // Reset visible count when search term changes
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [searchTerm]);
+
+  // Infinite scroll: watch sentinel element
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => prev + 10);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [problems, searchTerm]);
 
   const fetchLeetCodeData = async (username: string) => {
     setLoadingLc(true);
@@ -395,6 +428,72 @@ export default function DashboardPage() {
     }
   };
 
+  const handleOpenEdit = (problem: ProblemSummary) => {
+    setEditModal({
+      problemId: problem._id,
+      title: problem.title,
+      link: problem.link || "",
+      difficulty: problem.difficulty,
+      source: problem.source || "other",
+      status: problem.status,
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editModal) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`${backendUrl}/problems/${editModal.problemId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${(session as any).backendToken}`,
+        },
+        body: JSON.stringify({
+          title: editModal.title,
+          link: editModal.link || undefined,
+          difficulty: editModal.difficulty,
+          source: editModal.source,
+          status: editModal.status,
+        }),
+      });
+      if (res.ok) {
+        setEditModal(null);
+        await loadProblems();
+      } else {
+        alert("Failed to update problem");
+      }
+    } catch (err) {
+      console.error("Failed to update problem", err);
+      alert("Failed to update problem");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (problemId: string) => {
+    setDeletingId(problemId);
+    try {
+      const res = await fetch(`${backendUrl}/problems/${problemId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${(session as any).backendToken}`,
+        },
+      });
+      if (res.ok || res.status === 204) {
+        await loadProblems();
+      } else {
+        alert("Failed to delete problem");
+      }
+    } catch (err) {
+      console.error("Failed to delete problem", err);
+      alert("Failed to delete problem");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+
   if (status === "loading") {
     return (
       <>
@@ -514,17 +613,19 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="rounded-xl mt-1 border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
-            {loading ? (
-              <p className="p-4 text-sm text-gray-600">Loading problems...</p>
-            ) : problems.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
-              <p className="p-4 text-sm text-gray-600">
-                {searchTerm ? `No problems found matching "${searchTerm}"` : "No problems yet. Click the \"+ Add Problem\" button to get started."}
-              </p>
-            ) : (
-              problems
-                .filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()))
-                .slice(0, searchTerm ? undefined : 10)
-                .map((p) => (
+            {(() => {
+              const filtered = problems.filter(p => p.title.toLowerCase().includes(searchTerm.toLowerCase()));
+              const visible = filtered.slice(0, visibleCount);
+              const hasMore = visible.length < filtered.length;
+              if (loading) return <p className="p-4 text-sm text-gray-600">Loading problems...</p>;
+              if (filtered.length === 0) return (
+                <p className="p-4 text-sm text-gray-600">
+                  {searchTerm ? `No problems found matching "${searchTerm}"` : "No problems yet. Click the \"+ Add Problem\" button to get started."}
+                </p>
+              );
+              return (
+                <>
+                  {visible.map((p) => (
                   <div
                     key={p._id}
                     className="flex items-center justify-between px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
@@ -538,25 +639,158 @@ export default function DashboardPage() {
                         {p.difficulty}
                       </p>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenNotes(p);
-                      }}
-                      className="relative ml-4 px-3 py-1.5 rounded-md text-xs font-medium bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors"
-                    >
-                      Notes
-                      {((p.notes && p.notes.trim().length > 0) || (p.codeSolution && p.codeSolution.trim().length > 0)) && (
-                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-sm border border-white dark:border-zinc-900"></span>
-                        </span>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-1 ml-3 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenNotes(p);
+                        }}
+                        className="relative px-3 py-1.5 rounded-md text-xs font-medium bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors"
+                      >
+                        Notes
+                        {((p.notes && p.notes.trim().length > 0) || (p.codeSolution && p.codeSolution.trim().length > 0)) && (
+                          <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-sm border border-white dark:border-zinc-900"></span>
+                          </span>
+                        )}
+                      </button>
+                      {/* Edit button */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleOpenEdit(p); }}
+                        title="Edit problem"
+                        className="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                ))
-            )}
+                  ))}
+                  {/* Sentinel for infinite scroll */}
+                  <div ref={sentinelRef} className="py-2 text-center">
+                    {hasMore && (
+                      <span className="text-xs text-gray-400">Loading more...</span>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </section>
+
+        {/* Edit Problem Modal */}
+        {editModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-6 w-full max-w-md shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-zinc-50">Edit Problem</h2>
+                <button onClick={() => setEditModal(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl">×</button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-zinc-300">Title <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={editModal.title}
+                    onChange={(e) => setEditModal({ ...editModal, title: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-zinc-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-zinc-300">Link (URL)</label>
+                  <input
+                    type="url"
+                    value={editModal.link}
+                    onChange={(e) => setEditModal({ ...editModal, link: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-zinc-50"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-zinc-300">Difficulty</label>
+                    <select
+                      value={editModal.difficulty}
+                      onChange={(e) => setEditModal({ ...editModal, difficulty: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-zinc-50"
+                    >
+                      <option value="unknown">Unknown</option>
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-zinc-300">Source</label>
+                    <select
+                      value={editModal.source}
+                      onChange={(e) => setEditModal({ ...editModal, source: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-zinc-50"
+                    >
+                      <option value="leetcode">LeetCode</option>
+                      <option value="gfg">GeeksforGeeks</option>
+                      <option value="codeforces">Codeforces</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-zinc-300">Status</label>
+                  <select
+                    value={editModal.status}
+                    onChange={(e) => setEditModal({ ...editModal, status: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-zinc-50"
+                  >
+                    <option value="unsolved">Unsolved</option>
+                    <option value="attempted">Attempted</option>
+                    <option value="solved">Solved</option>
+                    <option value="review">Review</option>
+                  </select>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to delete this problem?")) {
+                        handleDelete(editModal.problemId);
+                        setEditModal(null);
+                      }
+                    }}
+                    disabled={deletingId === editModal.problemId}
+                    className="flex items-center gap-1.5 p-2 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+                  >
+                    {deletingId === editModal.problemId ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                    Delete
+                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setEditModal(null)}
+                      className="rounded-lg border border-gray-300 dark:border-zinc-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleEditSave}
+                      disabled={savingEdit || !editModal.title.trim()}
+                      className="rounded-lg bg-blue-500 px-5 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {savingEdit ? "Saving..." : "Save Changes"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">

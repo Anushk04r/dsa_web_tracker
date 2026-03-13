@@ -485,7 +485,8 @@ Authorization: Bearer <backendToken>
   - **Stat cards**:
     - Total problems.
     - Total solved problems.
-  - **Recent problems list** (up to 10).
+  - **Problems list with infinite scroll** — loads 10 problems initially; as the user scrolls the main page down, 10 more are loaded automatically via `IntersectionObserver` and a sentinel `<div>`.
+  - **Inline search** — filters visible problems in real-time; resets the scroll position back to the first 10 matches on each new query.
 - Handles:
   - Loading state (`status === "loading"`).
   - Unauthenticated state with a friendly message.
@@ -744,4 +745,8 @@ This repository is intentionally structured to look like a production‑grade, *
 - **Layout Architecture**: Uses Tailwind's `flex-col lg:flex-row` with `h-[85vh]` and `overflow-hidden` to create a viewport-locked professional IDE feel.
 - **CRUD Operations**: Updated `PATCH /problems/:id` on the backend to accept multiple fields, supporting the independent editing of notes and logic.
 
-
+### ♾️ Infinite Scroll on Dashboard (v2.1)
+- **Load-on-demand**: The problems list now loads **10 problems at a time** instead of rendering all at once, keeping the page fast regardless of how many problems are tracked.
+- **Main-page scroll**: Uses a native `IntersectionObserver` watching a sentinel `<div>` at the bottom of the list — no inner scrollable container, so the user just scrolls the dashboard page naturally.
+- **Search-aware**: Switching search filters resets the visible count back to 10 so results always start from the top.
+- **No extra libraries**: Implemented with React's `useRef` + `useEffect` and the browser-native `IntersectionObserver` API.
